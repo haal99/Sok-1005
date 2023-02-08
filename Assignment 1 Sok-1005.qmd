@@ -1,0 +1,143 @@
+---
+title: "Assignment 1 - Sok-1005"
+author: "22 | Harald A. Larsen"
+format: pdf
+editor: visual
+---
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(lubridate)
+library(zoo)
+```
+
+```{r}
+#Downloading the data frames needed.
+
+df_lt <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/tlt/uahncdc_lt_6.0.txt")
+df_mt <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/tmt/uahncdc_mt_6.0.txt")
+df_tp <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/ttp/uahncdc_tp_6.0.txt")
+df_ls <- read_table2("https://www.nsstc.uah.edu/data/msu/v6.0/tls/uahncdc_ls_6.0.txt")
+```
+
+```{r}
+#Cleaning the data frames.
+df_lt <- df_lt[1:which(df_lt$Year %in% "Year")-1, ]
+df_mt <- df_mt[1:which(df_mt$Year %in% "Year")-1, ]
+df_tp <- df_tp[1:which(df_tp$Year %in% "Year")-1, ]
+df_ls <- df_ls[1:which(df_ls$Year %in% "Year")-1, ]
+```
+
+```{r}
+#Selecting the necessary columns and working out the 12-month(right aligned) moving average for all the atmospheres.
+
+#Lower troposphere
+df_lt <- df_lt %>% 
+  mutate(Date = ymd(paste(df_lt$Year, df_lt$Mo, 1, sep="-"))) %>% 
+  select(Date, Globe)%>%
+  mutate_at(vars(Globe), ~as.numeric(.))
+
+
+df_lt <- df_lt %>%
+  mutate(Year = year(Date),
+           Month = month(Date),
+                Month2 = month(Date, label = TRUE, abbr = FALSE))%>%
+  select(Year, Month, Date, Globe)%>%
+  mutate(Lower_Troposphere=rollmean(Globe, k=12, fill = NA, na.pad = FALSE,align = "right"))%>%
+  select(-c(Month, Date, Globe))
+```
+
+```{r}
+
+#Mid troposphere
+df_mt <- df_mt %>% 
+  mutate(Date = ymd(paste(df_mt$Year, df_mt$Mo, 1, sep="-"))) %>% 
+  select(Date, Globe)%>%
+  mutate_at(vars(Globe), ~as.numeric(.))
+
+
+df_mt <- df_mt %>% 
+  mutate(Year4 = year(Date),
+           Month = month(Date),
+               Month2 = month(Date, label = TRUE, abbr = FALSE)) %>%
+  select(Year4, Month, Date, Globe)%>%
+  mutate(Mid_Troposphere=rollmean(Globe, k=12, fill = NA, na.pad = FALSE,align = "right"))%>%
+  select(-c(Month,Date,Globe))
+
+```
+
+```{r}
+
+#Tropopause
+df_tp <- df_tp %>% 
+  mutate(Date = ymd(paste(df_tp$Year, df_tp$Mo, 1, sep="-"))) %>% 
+  select(Date, Globe)%>%
+  mutate_at(vars(Globe), ~as.numeric(.))
+
+
+df_tp <- df_tp %>% 
+  mutate(Year3 = year(Date),
+          Month = month(Date),
+            Month2 = month(Date, label = TRUE, abbr = FALSE)) %>%
+  select(Year3, Month, Date, Globe)%>%
+  mutate(Tropopause=rollmean(Globe, k=12, fill = NA, na.pad = FALSE,align = "right"))%>%
+  select(-c(Month,Date,Globe))
+```
+
+```{r}
+#Lower stratosphere
+df_ls <- df_ls %>% 
+  mutate(Date = ymd(paste(df_ls$Year, df_ls$Mo, 1, sep="-"))) %>% 
+  select(Date, Globe)%>%
+  mutate_at(vars(Globe), ~as.numeric(.))
+
+
+df_ls <- df_ls %>% 
+  mutate(Year2 = year(Date),
+          Month = month(Date),
+            Month2 = month(Date, label = TRUE, abbr = FALSE))%>%
+  select(Year2, Month, Date, Globe)%>%
+  mutate(Lower_stratosphere=rollmean(Globe, k=12, fill = NA, na.pad = FALSE,align = "right"))%>%
+  select(-c(Month,Date,Globe))
+```
+
+```{r}
+#Creating new data frame with calculations from all atmospheres.
+df_total <- cbind(df_lt,df_mt,df_ls,df_tp)
+
+#Removing rows so its more streamlined.
+
+df_total <- df_total%>%
+  select(-c(Year2,Year4,Year3))
+
+```
+
+```{r}
+#Calculating the average temperature of all the atmospheres.
+df_total <- df_total%>%
+  mutate(Average= rowMeans(select(., Lower_Troposphere:Tropopause)))
+
+#Removing NA values.
+
+df_total <- df_total%>%
+na.omit(df_total)
+```
+
+```{r}
+#Changing them to a tall format so its easier to plot.
+df_global <- df_total%>%
+  pivot_longer(2:6, names_to = "Location", values_to = "Temp")
+
+```
+
+```{r}
+#Making a plot
+df_global %>%
+  ggplot(aes(x=Year, y=Temp, color=Location)) + 
+  geom_line() +
+  labs(title = "Average temperature over time", subtitle = "Average temperature for the four atmosphere locations and their rolling average from 1980 until today") +
+  ylab("Global Temperature") + xlab("Year") +
+  scale_color_discrete(labels=c("Lower Troposphere", "Mid-Troposphere", "Tropopause", "Lower Stratosphere"))
+
+```
