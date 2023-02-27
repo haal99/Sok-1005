@@ -1,0 +1,89 @@
+---
+title: "Assignment 2"
+format: pdf
+editor: visual
+---
+
+## Task 1
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(rvest)#for scrapping
+library(janitor)
+library(lubridate)
+#Loading all the packages needed.
+```
+
+```{r}
+url <- "https://www.motor.no/aktuelt/motors-store-vintertest-av-rekkevidde-pa-elbiler/217132"
+
+url %>% read_html() %>% 
+  html_element("table") %>%  
+  html_table()
+```
+```{r}
+ df1 <- url %>%
+   read_html() %>% 
+   html_nodes("table") %>%  
+   html_table() %>% .[[1]]
+```
+
+
+```{r}
+names(df1) <- c("Modell (temp 0-10)", "WLTP-tall", "STOPP", "Avvik")
+#Giving columns a title
+
+df1 <- df1[-1,]
+#Removing first row.
+```
+
+
+```{r}
+#Duplicating columns
+df1 <- separate(df1, col=`WLTP-tall`, into=c('WLTP-tall', 'NaN'), sep=' ')
+df1 <- separate(df1, col=`STOPP`, into=c('STOPP', 'Remove'), sep=' ')
+```
+
+```{r}
+df1$`WLTP-tall` <- as.numeric(df1$`WLTP-tall`)
+df1$STOPP <- as.numeric(df1$STOPP)
+
+df1 <- df1[-19,]
+df1 <- df1[-25,]
+```
+
+
+```{r}
+#plot
+df1 %>%
+  ggplot(aes(x= `WLTP-tall` , y = STOPP)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, size = 1, col = 'red') +
+  xlab('WLTP') +
+  ylab('STOP') +
+  ggtitle('WLTP vs. range in cold weather') +
+  theme_minimal()
+```
+# The figure reveals that none of the cars meet their advertised range under the temperature conditions of 0 to -10 Celsius. Ideally, if the cars lived up to their advertised range, their data points would fall on the 45-degree line, while data points above the line would indicate that the cars exceeded their expected range.
+
+## Task 2
+
+```{r}
+df2 <- lm(`STOPP` ~ `WLTP-tall`, data = df1)
+```
+
+# The regression line has a y-intercept of -26.645 and a positive slope of 0.8671, indicating an increase in the y-axis values with increasing x-axis values.
+
+```{r}
+#plot
+df2 %>%
+  ggplot(aes(x = `WLTP-tall`, y = STOPP)) + 
+  geom_point()+
+  geom_abline(intercept = 0, slope = 1, size = 0.5, col = 'red') +
+  stat_smooth(method = "lm", col = "green") +
+  xlab('WLTP') +
+  ylab('STOP') +
+  ggtitle('WLTP vs. range in cold weather') +
+  theme_minimal()
+```
